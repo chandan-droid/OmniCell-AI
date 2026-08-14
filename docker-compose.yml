@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # --- Message Broker Layer ---
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  # --- Data Lake Layer ---
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=omnicell_admin
+      - POSTGRES_PASSWORD=BioprocessSecurePassword2026
+      - POSTGRES_DB=telemetry_data
+
+  # --- Diagnostic Brain (Knowledge Graph) ---
+  neo4j:
+    image: neo4j:5.12
+    ports:
+      - "7474:7474" # HTTP
+      - "7687:7687" # Bolt (Driver)
+    environment:
+      - NEO4J_AUTH=neo4j/BioprocessSecurePassword2026
+      - NEO4J_PLUGINS=["apoc", "graph-data-science"]
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
+
+  # --- AI Inference Layer (State Observer) ---
+  triton-server:
+    image: nvcr.io/nvidia/tritonserver:23.06-py3
+    ports:
+      - "8000:8000" # HTTP
+      - "8001:8001" # gRPC
+    volumes:
+      - ./model_repository:/models
+    command: ["tritonserver", "--model-repository=/models"]
+    restart: unless-stopped
+    # If using GPU, uncomment the following:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  qdrant_storage:
