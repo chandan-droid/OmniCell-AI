@@ -80,10 +80,25 @@ The environment limits the AI's vision to realistic, physically measurable senso
 
 ### Action Space (The AI's "Hands")
 
-The environment forces the RL agent to operate within a normalized continuous space, which the environment later maps to physical pump voltages.
+The environment forces the RL agent to operate within a normalized continuous space controlling 3 physical pump channels:
 
-* **Format:** `spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)`
-* **Index 0:** Glucose Feed Pump Voltage (Mapped internally to Liters/hour).
+* **Format:** `spaces.Box(low=-1.0, high=1.0, shape=(3,), dtype=np.float32)`
+* **Index 0:** Glucose Feed Rate (Mapped to 0.0 – 0.50 L/h)
+* **Index 1:** Base Buffer Rate for pH stabilization (Mapped to 0.0 – 0.10 L/h)
+* **Index 2:** Trace Element / Micronutrient Feed for enzyme cofactor injection (Mapped to 0.0 – 0.02 L/h)
+
+### Synthetic Genetic Drift & Chemical Bypass Engine
+
+To train downstream diagnostic agent swarms and safe controllers on metabolic bottleneck recovery:
+* **Genetic Drift Trigger:** At simulation step 150, Pyruvate Dehydrogenase (`PDH`) flux is artificially suppressed (`knock_down_fraction=0.15`), simulating epigenetic silencing and cellular aging.
+* **Chemical Bypass Recovery:** If the RL agent actuates trace nutrient feed above `0.005 L/h` (Index 2), pathway enzyme activity is restored (`knock_down_fraction=1.0`), restoring optimal biomass growth.
+
+### Gymnasium Environment Registration (`__init__.py`)
+
+Registered with Gymnasium for Ray/RLlib distributed worker rollouts:
+* **Environment ID:** `OmniCellBioreactor-v0`
+* **Entry Point:** `bioreactor_gym_env:BioreactorTwinEnv`
+* **Max Episode Steps:** `500`
 
 ### The Reward Function (The Incentive)
 

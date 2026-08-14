@@ -1,4 +1,4 @@
-# OmniCell-AI: Autonomous Bioreactor Control Architecture
+# OmniCell-AI: Foundation-Driven Autonomous Bioreactor Control with cGMP-Compliant Multi-Agent Alignment
 
 **OmniCell-AI** is an industrial Software-in-the-Loop (SIL) platform for autonomous bioreactor monitoring, metabolic dynamic flux balance analysis (dFBA), and real-time Quality by Design (QbD) control.
 

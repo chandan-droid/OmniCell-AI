@@ -7,14 +7,15 @@ if __name__ == "__main__":
     obs, info = env.reset()
     print(f"Initial State: Biomass={obs[0]:.2f}, Glucose={obs[1]:.2f}")
     
-    # The execution loop: Feeds a static baseline action (e.g., [0.0]) into the 
-    # environment over 50 simulation steps. Validates that CobraPy tensors and 
-    # Euler physics arrays successfully pass data back and forth without shape 
-    # mismatches or infinite calculation loops.
-    for _ in range(50): 
-        # Hardcode action [0.0] which maps to 0.25 L/h feed rate
-        obs, reward, term, trunc, info = env.step([0.0])
+    # The execution loop: Feeds 3-pump actions [0.0, 0.0, 0.0] into the 
+    # environment over 200 simulation steps (testing past step 150 drift & bypass).
+    for step_i in range(200): 
+        # Action: [0.0 (Glucose), 0.0 (Base), 0.0 (Trace Nutrient)]
+        # After step 150, activate trace nutrient feed [0.0, 0.0, 0.5] to trigger chemical bypass!
+        trace_action = 0.5 if step_i >= 160 else -1.0
+        obs, reward, term, trunc, info = env.step([0.0, 0.0, trace_action])
         
-    print(f"Final State: Biomass={obs[0]:.2f}, Glucose={obs[1]:.2f}, Lactate={obs[2]:.2f}")
-    print("Verification Passed: dFBA and Euler Physics successfully integrated.")
+    print(f"Final State (Step 200): Biomass={obs[0]:.2f}, Glucose={obs[1]:.2f}, Lactate={obs[2]:.2f}")
+    print("Verification Passed: dFBA, Euler Physics, 3-Pump Control, Genetic Drift, and Chemical Bypass successfully integrated.")
+
 

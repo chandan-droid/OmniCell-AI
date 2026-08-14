@@ -12,10 +12,11 @@ class BioreactorTwinEnv(gym.Env):
         super().__init__()
         self.bio_engine = BiologicalEngine("textbook")
         
-        # Action Space: Defines the AI's "hands." Restricts the AI to outputting a 
-        # continuous float between -1.0 and 1.0, which step() later translates into 
-        # a physical feed pump rate (Liters/hour).
-        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
+        # Action Space: 3 continuous pump controls [-1.0, 1.0]
+        # [0] = Glucose Feed Rate (L/h)
+        # [1] = Base Buffer Rate (pH stabilization, L/h)
+        # [2] = Trace Nutrient / Zinc Feed (Enzyme cofactor injection, L/h)
+        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(3,), dtype=np.float32)
         
         # Observation Space: Defines the AI's "eyes." Bounds the physical concentrations 
         # to realistic limits [Biomass (g/L), Glucose (g/L), Lactate (mmol/L)], representing 
@@ -32,6 +33,7 @@ class BioreactorTwinEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.current_step = 0
+        self.bio_engine.reset_metabolic_drift()
         
         # Initial Macroscopic Tank State: Acts as the physical memory of the tank. 
         # Tracks the exact macroscopic concentrations of Biomass (X), Glucose (S), 
@@ -47,20 +49,31 @@ class BioreactorTwinEnv(gym.Env):
     def step(self, action):
         self.current_step += 1
         
-        # 1. Translate Action to Physics (Feed Pump L/h)
-        # Map [-1, 1] to [0, 0.5] Liters/hour
-        feed_rate = (action[0] + 1.0) * 0.25 
+        # 1. Map continuous actions to physical flow rates
+        feed_glucose = (action[0] + 1.0) * 0.25      # [0.0 to 0.50 L/h]
+        feed_base    = (action[1] + 1.0) * 0.05      # [0.0 to 0.10 L/h]
+        feed_trace   = (action[2] + 1.0) * 0.01      # [0.0 to 0.02 L/h]
+        
+        feed_rate = feed_glucose
         feed_concentration = 100.0 # g/L in the feed tank
         
-        # 2. Formulate Biological Constraints (Michaelis-Menten Kinetics proxy)
+        # 2. Trigger synthetic genetic drift at step 150 (simulating cellular aging)
+        if self.current_step == 150:
+            self.bio_engine.induce_metabolic_drift("PDH", knock_down_fraction=0.15)
+        
+        # 3. Chemical bypass: If trace nutrient feed > 0.005 L/h, restore pathway
+        if feed_trace > 0.005:
+            self.bio_engine.induce_metabolic_drift("PDH", knock_down_fraction=1.0) # Restored
+            
+        # 4. Formulate Biological Constraints (Michaelis-Menten Kinetics proxy)
         # Substrate availability restricts maximum cellular uptake
         max_uptake = 10.0 * (self.state["S"] / (0.5 + self.state["S"]))
         constraints = {"EX_glc__D_e": max_uptake}
         
-        # 3. Execute Biological FBA
+        # 5. Execute Biological FBA
         bio_rates = self.bio_engine.solve_fba(constraints)
         
-        # 4. Execute Macroscopic Mass Balance (Euler Integration)
+        # 6. Execute Macroscopic Mass Balance (Euler Integration)
         # Applies differential mass-balance equations (dX, dS, dL), calculating how 
         # the tank's overall volume and chemical makeup change over time delta (self.dt) 
         # based on pump input and cellular metabolic rates.
@@ -76,7 +89,7 @@ class BioreactorTwinEnv(gym.Env):
         self.state["S"] = np.clip(self.state["S"] + dS, 0.0, 100.0)
         self.state["L"] = np.clip(self.state["L"] + dL, 0.0, 50.0)
         
-        # 5. Calculate Reward Function (The Incentive)
+        # 7. Calculate Reward Function (The Incentive)
         # The mathematical incentive scorecard: grants points for high growth rate (mu) 
         # and deducts points for toxic lactate accumulation (self.state["L"]).
         reward = (mu * 10.0) - (self.state["L"] * 2.0)
