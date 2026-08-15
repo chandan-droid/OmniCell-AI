@@ -1,3 +1,4 @@
 cobra
 gymnasium
 numpy
+matplotlib

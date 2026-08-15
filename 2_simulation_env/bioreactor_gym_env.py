@@ -55,7 +55,7 @@ class BioreactorTwinEnv(gym.Env):
         feed_trace   = (action[2] + 1.0) * 0.01      # [0.0 to 0.02 L/h]
         
         feed_rate = feed_glucose
-        feed_concentration = 100.0 # g/L in the feed tank
+        feed_concentration = 400.0 # Increased to prevent culture starvation
         
         # 2. Trigger synthetic genetic drift at step 150 (simulating cellular aging)
         if self.current_step == 150:
@@ -63,29 +63,34 @@ class BioreactorTwinEnv(gym.Env):
         
         # 3. Chemical bypass: If trace nutrient feed > 0.005 L/h, restore pathway
         if feed_trace > 0.005:
-            self.bio_engine.induce_metabolic_drift("PDH", knock_down_fraction=1.0) # Restored
+            self.bio_engine.reset_metabolic_drift() # Fully restores the pathway
             
         # 4. Formulate Biological Constraints (Michaelis-Menten Kinetics proxy)
         # Substrate availability restricts maximum cellular uptake
         max_uptake = 10.0 * (self.state["S"] / (0.5 + self.state["S"]))
-        constraints = {"EX_glc__D_e": max_uptake}
+        
+        # FIX: Raise baseline oxygen so healthy cells can breathe.
+        # They will still ferment later when the PDH enzyme is knocked out.
+        constraints = {
+            "EX_glc__D_e": max_uptake,
+            "EX_o2_e": 100.0  
+        }
         
         # 5. Execute Biological FBA
         bio_rates = self.bio_engine.solve_fba(constraints)
         
         # 6. Execute Macroscopic Mass Balance (Euler Integration)
-        # Applies differential mass-balance equations (dX, dS, dL), calculating how 
-        # the tank's overall volume and chemical makeup change over time delta (self.dt) 
-        # based on pump input and cellular metabolic rates.
+        # Applies differential mass-balance equations with CSTR volume dilution rate (F/V).
         mu = bio_rates["mu"]
         q_s = bio_rates["q_glucose"]
         q_l = bio_rates["q_lactate"]
         
-        dX = (mu * self.state["X"]) * self.dt
-        dS = (-q_s * self.state["X"] + feed_rate * feed_concentration) * self.dt
-        dL = (q_l * self.state["X"]) * self.dt
+        V = 1.0 # Tank Volume (L)
+        dX = (mu * self.state["X"] - (feed_rate / V) * self.state["X"]) * self.dt
+        dS = (-q_s * self.state["X"] + (feed_rate / V) * (feed_concentration - self.state["S"])) * self.dt
+        dL = (q_l * self.state["X"] - (feed_rate / V) * self.state["L"]) * self.dt
         
-        self.state["X"] = np.clip(self.state["X"] + dX, 0.0, 50.0)
+        self.state["X"] = np.clip(self.state["X"] + dX, 0.0, 5.0)
         self.state["S"] = np.clip(self.state["S"] + dS, 0.0, 100.0)
         self.state["L"] = np.clip(self.state["L"] + dL, 0.0, 50.0)
         

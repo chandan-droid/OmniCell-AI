@@ -126,6 +126,12 @@ Verifies the Euler mass-balance wrapper, dFBA kinetics, and OpenAI Gym tensor fo
 python test_environment.py
 ```
 
+3. **Launch Real-Time Graphical Dashboard:**
+Animates real-time biological curves (Biomass, Glucose, Lactate) and visually observes genetic drift crash at Step 150.
+```powershell
+python live_dashboard.py
+```
+
 ---
 
 ## Upstream/Downstream Connectivity
