@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from bioreactor_gym_env import BioreactorTwinEnv
+from ingest_client import send_telemetry
 
 # 1. Initialize the Bio-Twin Sandbox
 print("[System] Initializing OmniCell-AI Bio-Twin...")
@@ -49,6 +50,9 @@ def update_dashboard(frame):
     
     # Step the simulation physics forward
     obs, reward, terminated, truncated, _ = env.step(action)
+    
+    # Stream telemetry to Go Edge Ingestion microservice (non-blocking)
+    send_telemetry(obs[0], obs[1], obs[2])
     
     # Append new ground-truth data
     current_time = env.current_step * env.dt

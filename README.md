@@ -102,12 +102,53 @@ go run main.go
 
 ---
 
-### Step 4: Run Agent Swarm & Controller (Modules 3 & 4)
+### Step 4: Run Agent Swarm — Phase 3 (LangGraph Diagnostic Swarm)
 
-*(When implemented)*
+#### 4a. Install Dependencies
 ```powershell
 cd 3_agent_swarm
-python main.py
+uv venv --python 3.12
+.venv\Scripts\activate
+uv pip install -r requirements.txt
+```
+
+#### 4b. Configure Environment
+```powershell
+copy .env.example .env
+# Open .env and set OPENAI_API_KEY, Neo4j password, etc.
+```
+
+#### 4c. Seed the Neo4j Knowledge Graph (run once)
+```powershell
+python neo4j_seeder.py
+```
+> Verify the graph at **http://localhost:7474** — you should see `Anomaly`, `Symptom`, `Enzyme`, and `Treatment` nodes connected by `CAUSES`, `INDICATES`, `SUPPRESSES`, and `RESTORES` relationships.
+
+#### 4d. Start the Kafka Diagnostic Watchdog
+```powershell
+python watchdog.py
+```
+
+**Expected output (anomaly scenario):**
+```text
+🚀 OmniCell-AI Diagnostic Watchdog starting …
+✅ Swarm ready.
+👂 Listening on topic 'omnicell-telemetry' …
+
+[MSG #42] ts=2026-08-27T15:30:01Z | lactate=3.142 mmol/L | glucose=18.5 g/L | pH=7.1
+  [Supervisor] Lactate=3.142 mmol/L > 2.0 → flagging 'Lactate Spike'
+  [Biologist]  Querying knowledge graph for symptom: 'Lactate Spike' …
+  [Biologist]  Anomaly   : Overflow Metabolism
+  [Biologist]  Treatment : Reduce Feed Pump Rate
+  [Biologist]  Action    : trace_pump_on
+
+════════════════════════════════════════════════════════════
+  ⚠️  OMNICELL ALERT
+  Anomaly   : Overflow Metabolism
+  Treatment : Reduce Feed Pump Rate
+  ACTION    : ► TRACE_PUMP_ON ◄
+  Telemetry : Lactate=3.142 mmol/L  |  Glucose=18.5 g/L  |  pH=7.1
+════════════════════════════════════════════════════════════
 ```
 
 ---
@@ -134,6 +175,29 @@ npm run dev
 
 ---
 
+## 🔮 Future Scope (Project Roadmap)
+
+Based on the architectural constraints and deliberate exclusions of the current MVP, the enterprise roadmap includes:
+
+### 1. 3D Multi-Physics & Fluid Dynamics Integration
+
+* **Computational Fluid Dynamics (CFD):** Transition from a 1D "perfectly mixed" assumption to a 3D spatial model to calculate true mixing times, dead zones, and impeller shear stress on the cells.
+* **Dynamic Gas Transfer Kinetics ($k_L a$):** Replace static oxygen boundaries with active sparger modeling, calculating bubble size distribution, gas hold-up, and real-time volumetric mass transfer.
+* **Thermodynamic Modeling:** Implement metabolic heat generation and dynamic cooling jacket compensation algorithms, moving away from the static 37°C assumption.
+
+### 2. Reinforcement Learning (RL) Expansion
+
+* **Expanded Action Space:** Upgrade the Gym environment so the AI agent can control physical hardware variables—such as Agitator RPM, Sparger Airflow rates, and Cooling Jacket flow—rather than just chemical pumps.
+* **Continuous Control Policies:** Train advanced RL algorithms (like PPO or SAC) to dynamically optimize these new variables in real-time to maximize biomass yield.
+
+### 3. GraphRAG & AI Diagnostic Scaling
+
+* **Distractor Anomalies:** Expand the Neo4j knowledge base with thousands of overlapping hardware failures (e.g., agitator motor stalls, DO probe calibration drift). This forces the LangGraph swarm to perform complex logical elimination (checking multiple Kafka streams) rather than following a single linear path.
+* **Enterprise Cell Lines:** Swap the textbook *E. coli* CobraPy payload for a commercial Chinese Hamster Ovary (CHO) cell model (which contains 6,000+ reactions) to mirror true biopharmaceutical manufacturing complexity.
+
+---
+
 ## 📄 License & Confidentiality
 
 Internal proprietary codebase for OmniCell-AI SIL Simulation Architecture.
+
