@@ -14,6 +14,8 @@ This module combines:
 
 ## 🏛️ System Architecture
 
+![LangGraph Swarm Architecture](../images/langGraph%20Swarm%20Arch.png)
+
 ```text
                     Kafka Telemetry Stream ('omnicell-telemetry')
                                       │
