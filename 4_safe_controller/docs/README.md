@@ -1,10 +1,10 @@
-# OmniCell-AI Phase 4: Safe DRL Bioreactor Controller & Triton Inference
+# OmniCell-AI Phase 4: Safe DRL Bioreactor Controller Planning
 
 ## Module Overview
 
-The **Safe Controller** module (`4_safe_controller`) is the autonomous actuation engine of the OmniCell-AI platform. In an industrial bioprocess (e.g., monoclonal antibody or recombinant protein production), maintaining cell viability and maximizing product titer while preventing toxic byproduct accumulation (such as lactate or ammonia) requires continuous, closed-loop feeding control.
+The **Safe Controller** module (`4_safe_controller`) is the planned autonomous actuation engine of the OmniCell-AI platform. In an industrial bioprocess (e.g., monoclonal antibody or recombinant protein production), maintaining cell viability and maximizing product titer while preventing toxic byproduct accumulation (such as lactate or ammonia) requires continuous, closed-loop feeding control.
 
-Training a standard Reinforcement Learning (RL) agent directly on physical equipment risks equipment damage or catastrophic batch loss. In this architecture:
+Training a standard Reinforcement Learning (RL) agent directly on physical equipment risks equipment damage or catastrophic batch loss. This planning document defines the target architecture:
 1. The RL agent is trained **offline** inside the **Phase 2 Bio-Twin Software-in-the-Loop (SIL)** simulation.
 2. The learned policy is shielded by a **mathematical safety filter** (Control Barrier Functions / CVXPY QP solver).
 3. The trained policy is exported as an **ONNX graph** (`model.onnx`).
@@ -12,7 +12,7 @@ Training a standard Reinforcement Learning (RL) agent directly on physical equip
 
 ---
 
-## 🏛️ System & Deployment Architecture
+## 🏛️ Planned System & Deployment Architecture
 
 ```text
        ┌────────────────────────────────────────────────────────┐
@@ -79,9 +79,28 @@ Where $h(s) \ge 0$ defines the barrier function guaranteeing lactate and glucose
 
 ---
 
-## 📁 Repository Layout
+## 🗺️ Implementation Plan & Milestones
 
-When fully implemented, the directory structure for Phase 4 and the Triton inference store:
+The safe controller module will be delivered in four focused milestones:
+
+1. **Environment + Dependency Setup**
+   * Add `pyproject.toml` and `requirements.txt` for RL training, optimization, and model export dependencies.
+   * Define a reproducible `uv`-based local workflow.
+2. **Training + Evaluation**
+   * Implement `train.py` with PPO/SAC training against `2_simulation_env`.
+   * Implement `evaluate.py` to compare policy behavior with baseline control.
+3. **Safety Shield**
+   * Implement `safety_shield.py` for CVXPY-based action projection and process boundary checks.
+   * Verify that unsafe raw policy outputs are clipped/projected into valid operating bounds.
+4. **Inference Export + Serving**
+   * Implement `export_onnx.py`.
+   * Populate Triton `model_repository/omnicell_rl_controller/` artifacts and validate model metadata.
+
+---
+
+## 📁 Planned Repository Layout
+
+Target structure once implementation milestones are complete:
 
 ```text
 omnicell-ai-sil/
@@ -138,7 +157,7 @@ instance_group [
 
 ---
 
-## 🚀 Execution Workflow
+## 🚀 Planned Execution Workflow
 
 ### Step 1: Set Up Python Environment
 
