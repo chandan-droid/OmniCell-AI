@@ -1,209 +1,129 @@
-# OmniCell-AI Phase 3: LangGraph Diagnostic Swarm & GraphRAG
+# OmniCell-AI Phase 3: Pure Multi-Agent Deliberation & Reflection Swarm
 
 ## Module Overview
 
-The **Diagnostic Swarm** (`3_agent_swarm`) represents the clinical diagnosis and anomaly response layer of the OmniCell-AI autonomous bioreactor platform. While the Phase 4 RL controller handles routine continuous feeding, biological systems frequently drift or encounter metabolic failure modes (such as overflow metabolism, lactate spikes, or probe fouling) that cannot be safely managed by an ungrounded neural network alone.
+The **Diagnostic Swarm** (`3_agent_swarm`) is the autonomous multi-agent clinical reasoning, counterfactual simulation, and cyber-physical governance layer of the OmniCell-AI bioprocess platform.
 
-This module combines:
-1. **Deterministic Edge Triage (Supervisor):** A zero-latency state router that filters routine telemetry and flags biochemical violations against process thresholds.
-2. **Agentic LLM Biologist (xAI Grok):** An intelligent agent bound to custom retrieval tools that reasons about observed failure symptoms.
-3. **Neo4j GraphRAG (Knowledge Graph):** A deterministic biological knowledge graph connecting symptoms to root-cause cellular anomalies, affected metabolic enzymes, and approved corrective treatments.
-4. **Real-time Kafka Watchdog:** A background consumer continuously monitoring the `omnicell-telemetry` stream to triage and emit prioritized industrial alerts.
+Rather than relying on linear pipelines or pre-ordained tool execution scripts, this module implements a **Pure Level-5 Multi-Agent Swarm** orchestrated via **LangGraph**:
+1. **Autonomous Tool Binding (`bind_tools`)**: Agents decide *which* tools to call, inspect intermediate results, and iterate autonomously.
+2. **Cognitive Multi-Persona Committee**: All agent personas (Evaluator, Biologist, Engineer, cGMP Auditor, Arbitrator) are powered by dedicated LLM system roles and schemas.
+3. **Dynamic Reflection & Debate Loops**: When an engineering or regulatory objection arises, the graph back-routes to previous agents with structured critique dossiers until consensus is reached.
 
 ---
 
-## 🏛️ System Architecture
-
-![LangGraph Swarm Architecture](../images/langGraph%20Swarm%20Arch.png)
+## 🏛️ Multi-Agent Swarm Architecture & Reflection Topology
 
 ```text
-                    Kafka Telemetry Stream ('omnicell-telemetry')
-                                      │
-                                      ▼
-                           [ watchdog.py ]
-                       (Kafka Consumer Loop)
-                                      │
-                                      ▼
-                        [ swarm.py : LangGraph ]
-                       ┌─────────────────────────┐
-                       │     supervisor_node     │
-                       └─────────────────────────┘
-                                      │
-                         (Is lactate > 2.0 mmol/L?)
-                                ├── No ───► [ END / Nominal ]
-                                │
-                                └── Yes ──► Flags: "Lactate Spike"
-                                              │
-                                              ▼
-                                 ┌─────────────────────────┐
-                                 │     biologist_node      │  ◄── (xAI Grok LLM)
-                                 └─────────────────────────┘
-                                              │
-                                   Invokes tool call
-                                              │
-                                              ▼
-                                    [ graph_tool.py ]
-                              (query_knowledge_graph)
-                                              │
-                                       Cypher Traversal
-                                              │
-                                              ▼
-                                    [ Neo4j Database ]
-                                (Seeded by neo4j_seeder.py)
-                                              │
-                                       Returns Payload
-                               (Anomaly, Treatment, Action)
-                                              │
-                                              ▼
-                       [ _emit_alert in watchdog.py ]
-                 (e.g., ACTION: ► TRACE_PUMP_ON ◄)
+                     Kafka Telemetry Stream ('omnicell-telemetry')
+                                       │
+                                       ▼
+                             [ watchdog.py ]
+                         (Kafka Consumer Loop)
+                                       │
+                                       ▼
+                          [ swarm.py : LangGraph ]
+                        ┌─────────────────────────┐
+                        │   evaluator_node        │  ◄── LLM Multivariate Perception & Anomaly Scoring
+                        └───────────┬─────────────┘
+                                    │
+                       (Is Multivariate Anomaly?)
+                                    ├── No ───► [ END / Nominal ]
+                                    │
+                                    └── Yes ──► Flags Symptoms
+                                                  │
+                                                  ▼
+                        ┌─────────────────────────┐ ◄───────────────────────────────┐
+                        │   biologist_node        │ ◄── Pure ReAct: bind_tools(...) │
+                        └───────────┬─────────────┘     (GraphRAG + Bio-Twin Sim)   │ (Reflection /
+                                    │                                               │  Debate Loop)
+                                    ▼                                               │
+                        ┌─────────────────────────┐                                 │
+                        │   engineer_node         │ ── (Rejected: Rev < 3) ─────────┤
+                        └───────────┬─────────────┘ ◄── LLM Hydrodynamic & Hardware │
+                                    │ (Approved)        Guardrail                   │
+                                    ▼                                               │
+                        ┌─────────────────────────┐                                 │
+                        │   cgmp_auditor_node     │ ── (Non-compliant: Rev < 3) ────┘
+                        └───────────┬─────────────┘ ◄── LLM FDA 21 CFR Part 11 /
+                                    │ (Approved)        QbD Design Space Audit
+                                    ▼
+                        ┌─────────────────────────┐
+                        │   arbitrator_node       │ ◄── LLM Consensus Synthesis & Action Directive
+                        └───────────┬─────────────┘
+                                    │
+                                    ▼
+                         [ Final Action Directive ]
+                  (e.g., ACTION: >> TRACE_PUMP_ON << [95% Confidence])
 ```
 
 ---
 
-## 🔬 Multi-Agent StateGraph Mechanics
+## 🔬 The 5 Autonomous Agent Personas
 
-The swarm is orchestrated using **LangGraph** (`swarm.py`), guaranteeing deterministic execution state and verifiable reasoning steps:
+### 1. Anomaly Evaluator Agent (`evaluator_node`)
+* **Role:** Autonomous multivariate perception & trend analysis.
+* **Mechanism:** Prompts an LLM with `_EVALUATOR_PROMPT` to analyze multi-parameter telemetry ($[\text{Lactate}]$, $[\text{Glucose}]$, $[\text{Biomass}]$, $\text{pH}$), formulate 2–3 rival hypotheses, and assign a severity grade (`NOMINAL`, `WARNING`, `CRITICAL_CQA`).
 
-### 1. Shared State Schema (`AgentState`)
+### 2. Metabolic Biologist Agent (`biologist_node`)
+* **Role:** Pure ReAct reasoning with dynamic tool selection.
+* **Mechanism:** Uses `llm.bind_tools([query_knowledge_graph, query_pathway_details, simulate_counterfactual_intervention])`.
+* **Behavior:** The LLM autonomously chooses which tools to execute, receives `ToolMessage` payloads, tests candidate interventions in the Bio-Twin, and incorporates peer review critiques if running inside a revision loop.
+
+### 3. Bioprocess Engineer Agent (`engineer_node`)
+* **Role:** LLM hardware feasibility & hydrodynamic safety guardrail.
+* **Mechanism:** Evaluates pump flow envelopes ($F_{\text{glucose}} \le 0.50\text{ L/h}$, $F_{\text{trace}} \le 0.02\text{ L/h}$), dilution washout constraints ($F/V \le 0.50\text{ h}^{-1}$), and actuator slew rates.
+* **Debate Routing:** If hardware limits are violated, emits `approved = False` with specific engineering critiques and routes back to the Biologist.
+
+### 4. cGMP Quality Auditor Agent (`cgmp_auditor_node`)
+* **Role:** LLM regulatory compliance & Quality by Design (QbD) validation.
+* **Mechanism:** Evaluates whether the proposed strategy and simulated trajectory maintain broth lactate within CQA boundaries ($\le 2.0\text{ mmol/L}$) under FDA 21 CFR Part 11 / ICH Q8 guidelines.
+* **Debate Routing:** If the trajectory is non-conforming, triggers back-routing to the Biologist for therapeutic re-planning.
+
+### 5. Executive Arbitrator (`arbitrator_node`)
+* **Role:** LLM consensus synthesis and execution dispatch.
+* **Mechanism:** Synthesizes the full multi-turn deliberation dossier, validates unanimous or conditional approval, and emits the final machine-executable directive with a confidence rating.
+
+---
+
+## 📦 StateGraph State Schema (`AgentState`)
 
 ```python
 class AgentState(TypedDict):
-    telemetry:           dict    # Raw sensor measurements from Kafka (biomass, glucose, lactate, pH)
-    symptom:             str     # Observed failure symptom flagged by Supervisor ("" if nominal)
-    diagnosis:           dict    # Structured GraphRAG response from Neo4j
-    recommended_action:  str     # Exact machine-executable action string (e.g., 'trace_pump_on')
+    telemetry:            dict[str, Any]  # Sensor snapshot (biomass, glucose, lactate, pH)
+    anomaly_evaluation:   dict[str, Any]  # Multivariate triage assessment & flagged symptoms
+    hypotheses:           list[str]       # Candidate biological & mechanical failure modes
+    biologist_diagnosis:  dict[str, Any]  # Root-cause analysis + proposed remedy from Biologist
+    simulation_results:   dict[str, Any]  # Lookahead digital twin counterfactual trajectory
+    engineer_review:      dict[str, Any]  # Equipment limits & hydrodynamic feasibility review
+    cgmp_audit:           dict[str, Any]  # FDA/QbD compliance scorecard & critical quality check
+    critique_feedback:    str             # Peer review critique triggering debate/revision
+    revision_count:       int             # Counter preventing infinite debate loops (max 3)
+    final_decision:       dict[str, Any]  # Synthesized execution directive
+    confidence:           float           # Consensus confidence score [0.0 - 1.0]
+    deliberation_history: list[str]       # Multi-agent audit trail log
 ```
-
-### 2. The Nodes
-
-* **`supervisor_node` (Triage Router):**
-  * Evaluates incoming telemetry against critical safety limits (e.g., `lactate_mmolL > LACTATE_THRESHOLD_MMOL`).
-  * If vitals are within standard operating bounds, execution terminates immediately at `END` (conserving LLM compute and latency).
-  * If a threshold is violated, it writes the symptom name (e.g., `"Lactate Spike"`) into `state["symptom"]` and routes to the Biologist.
-* **`biologist_node` (LLM + GraphRAG Tool):**
-  * Powered by xAI Grok (or OpenAI-compatible API) with strict zero-temperature constraints.
-  * Bound to the `query_knowledge_graph` tool.
-  * When invoked, it formulates a structured tool call to retrieve the exact anomaly and treatment mapped in Neo4j, preventing LLM hallucination in safety-critical operations.
 
 ---
 
-## 🕸️ Knowledge Graph & GraphRAG Schema (`Neo4j`)
+## 🚀 Verification & Testing
 
-The Neo4j database stores validated bioprocess failure ontologies. It is seeded automatically via `neo4j_seeder.py`.
-
-### Graph Ontology
-
-```text
- (Symptom) ──[:INDICATES]──► (Anomaly) ──[:SUPPRESSES]──► (Enzyme)
-                                                            ▲
-                                                            │ [:RESTORES]
-                                                            │
-                                                      (Treatment)
-```
-
-### Cypher Traversal (`graph_tool.py`)
-
-When the Biologist agent queries the knowledge base, it executes the following graph traversal:
-
-```cypher
-MATCH (s:Symptom {name: $symptom})-[:INDICATES]->(a:Anomaly)-[:SUPPRESSES]->(e)<-[:RESTORES]-(t:Treatment)
-RETURN a.name AS anomaly, t.name AS treatment, t.action AS action
-```
-
-### Seeded Anomalies & Treatments
-
-| Symptom | Identified Anomaly | Suppressed Enzyme | Corrective Treatment | Machine Action |
-| :--- | :--- | :--- | :--- | :--- |
-| **Lactate Spike** | Overflow Metabolism | Lactate Dehydrogenase | Reduce Feed Pump Rate | `trace_pump_on` |
-| **Glucose Surge** | Pump Calibration Drift | Hexokinase | Flush Feed Line | `flush_feed_line` |
-| **pH Drop** | pH Probe Fouling | Carbonic Anhydrase | Inject Base Bolus | `inject_base_bolus` |
-
----
-
-## 📡 Kafka Telemetry Watchdog (`watchdog.py`)
-
-The watchdog runs as an industrial daemon listening on `omnicell-telemetry`:
-* Consumes messages with auto-commit and configurable poll timeouts.
-* Deserializes JSON payloads emitted by the Go Edge Ingestion service.
-* Invokes the compiled LangGraph workflow synchronously on each pulse.
-* Emits high-visibility ANSI console alerts with the exact remedial action.
-
----
-
-## 🚀 Setup & Execution Guide
-
-### Step 1: Initialize Python Environment
+Run the automated verification suite:
 
 ```powershell
 cd 3_agent_swarm
-uv venv --python 3.12
-.venv\Scripts\activate
-uv pip install -r requirements.txt
+uv run python test_swarm.py
 ```
 
-### Step 2: Configure Environment Variables
+**Test Coverage:**
+* **Test 1: Nominal Telemetry** — Zero false alarms on healthy vitals with early exit.
+* **Test 2: Lactate Spike Anomaly** — ReAct tool-calling, Bio-Twin simulation ($3.42 \rightarrow 2.80\text{ mmol/L}$), engineer approval, and cGMP compliance scorecard.
+* **Test 3: Glucose Surge Anomaly** — Detection of pump calibration drift and line flushing authorization.
+* **Test 4: Multi-Agent Reflection & Debate Loop** — Multi-turn back-routing on peer review objections, revision processing, and convergence to consensus.
 
-Copy the template configuration:
-```powershell
-copy .env.example .env
-```
+---
 
-Edit `.env` with your credentials:
-```ini
-# LLM Provider (xAI Grok or any OpenAI-compatible endpoint)
-XAI_API_KEY=your_api_key_here
-XAI_BASE_URL=https://api.x.ai/v1
-XAI_MODEL=grok-2-1212
-
-# Neo4j Graph Database
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=BioprocessSecurePassword2026
-
-# Kafka Broker
-KAFKA_BOOTSTRAP=localhost:9092
-KAFKA_TOPIC=omnicell-telemetry
-KAFKA_GROUP_ID=omnicell-swarm-watchdog
-KAFKA_POLL_MS=1000
-
-# Safety Limits
-LACTATE_THRESHOLD_MMOL=2.0
-```
-
-### Step 3: Seed the Neo4j Knowledge Graph
-
-Ensure Neo4j is running (`docker-compose up -d neo4j`), then seed the graph nodes and relations:
-
-```powershell
-python neo4j_seeder.py
-```
-> Inspect the graph in your browser at **http://localhost:7474**.
-
-### Step 4: Run the Telemetry Watchdog
+## 📡 Running the Live Kafka Watchdog
 
 ```powershell
 python watchdog.py
-```
-
-**Sample Output on Anomaly Detection:**
-```text
-🚀 OmniCell-AI Diagnostic Watchdog starting …
-✅ Swarm ready.
-👂 Listening on topic 'omnicell-telemetry' …
-
-[MSG #14] ts=2026-09-03T21:40:02Z | lactate=3.410 mmol/L | glucose=19.2 g/L | pH=7.05
-  [Supervisor] Lactate=3.410 mmol/L > 2.0 → flagging 'Lactate Spike'
-  [Biologist]  Querying knowledge graph for symptom: 'Lactate Spike' …
-  [Biologist]  Anomaly   : Overflow Metabolism
-  [Biologist]  Treatment : Reduce Feed Pump Rate
-  [Biologist]  Action    : trace_pump_on
-
-════════════════════════════════════════════════════════════
-  ⚠️  OMNICELL ALERT
-  Anomaly   : Overflow Metabolism
-  Treatment : Reduce Feed Pump Rate
-  ACTION    : ► TRACE_PUMP_ON ◄
-  Telemetry : Lactate=3.410 mmol/L  |  Glucose=19.2 g/L  |  pH=7.05
-════════════════════════════════════════════════════════════
 ```

@@ -102,7 +102,7 @@ go run main.go
 
 ---
 
-### Step 4: Run Agent Swarm — Phase 3 (LangGraph Diagnostic Swarm)
+### Step 4: Run Multi-Agent Swarm — Phase 3 (LangGraph Deliberation Swarm & Digital Twin GraphRAG)
 
 #### 4a. Install Dependencies
 ```powershell
@@ -124,41 +124,36 @@ python neo4j_seeder.py
 ```
 > Verify the graph at **http://localhost:7474** — you should see `Anomaly`, `Symptom`, `Enzyme`, and `Treatment` nodes connected by `CAUSES`, `INDICATES`, `SUPPRESSES`, and `RESTORES` relationships.
 
-#### 4d. Start the Kafka Diagnostic Watchdog
+#### 4d. Run Multi-Agent Swarm Verification Suite
+```powershell
+uv run python test_swarm.py
+```
+
+#### 4e. Start the Kafka Diagnostic Watchdog
 ```powershell
 python watchdog.py
 ```
 
-**Expected output (anomaly scenario):**
+**Expected output (multi-agent deliberation scenario):**
 ```text
-🚀 OmniCell-AI Diagnostic Watchdog starting …
-✅ Swarm ready.
-👂 Listening on topic 'omnicell-telemetry' …
+[MSG #4] ts=2026-09-06 21:40:02 | lactate=3.42 mmol/L | glucose=18.0 g/L | pH=6.95
+  [Evaluator] Vitals: Lactate=3.42 mM | Glucose=18.00 g/L | Biomass=1.80 g/L | pH=6.95 -> Status: CRITICAL_CQA (Flagged: Lactate Spike)
+  [Biologist] Investigating root cause for symptom: 'Lactate Spike' ...
+  [Biologist] Root Cause: Overflow Metabolism (Lactate Dehydrogenase / PDH) | Proposal: trace_pump_on | Sim Outcome: Simulated 2.0h lookahead: Biomass 1.80->4.29 g/L, Lactate 3.42->2.80 mmol/L (decreasing)
+  [Engineer] Equipment Audit: APPROVED for action 'trace_pump_on'. Notes: Trace cofactor feed commanded at 0.010 L/h.
+  [cGMP Auditor] CQA Evaluation: PASS_WITH_MONITORING (Risk: MODERATE) | Predicted Lactate: 2.80 mmol/L (CQA limit <= 2.0)
+  [Arbitrator] Consensus Reached (CONDITIONAL_APPROVAL, Confidence: 75%). DISPATCHING ACTION: >> TRACE_PUMP_ON <<
 
-[MSG #42] ts=2026-08-27T15:30:01Z | lactate=3.142 mmol/L | glucose=18.5 g/L | pH=7.1
-  [Supervisor] Lactate=3.142 mmol/L > 2.0 → flagging 'Lactate Spike'
-  [Biologist]  Querying knowledge graph for symptom: 'Lactate Spike' …
-  [Biologist]  Anomaly   : Overflow Metabolism
-  [Biologist]  Treatment : Reduce Feed Pump Rate
-  [Biologist]  Action    : trace_pump_on
-
-════════════════════════════════════════════════════════════
-  ⚠️  OMNICELL ALERT
-  Anomaly   : Overflow Metabolism
-  Treatment : Reduce Feed Pump Rate
-  ACTION    : ► TRACE_PUMP_ON ◄
-  Telemetry : Lactate=3.142 mmol/L  |  Glucose=18.5 g/L  |  pH=7.1
-════════════════════════════════════════════════════════════
-```
-
----
-
-### Step 5: Start Frontend Dashboard (Module 5)
-
-*(When implemented)*
-```powershell
-cd 5_frontend_dashboard
-npm run dev
+══════════════════════════════════════════════════════════════════════
+  🧬 OMNICELL MULTI-AGENT CONSENSUS ALERT
+  Anomaly         : Overflow Metabolism
+  Treatment       : Activate Trace Pump & Modulate Feed
+  ACTION DIRECTIVE: ► TRACE_PUMP_ON ◄
+  Confidence      : 75% (CONDITIONAL_APPROVAL)
+  Bio-Twin Sim    : Simulated 2.0h lookahead: Biomass 1.80->4.29 g/L, Lactate 3.42->2.80 mmol/L (decreasing)
+  cGMP Audit      : PASS_WITH_MONITORING | Risk: MODERATE
+  Telemetry       : Lactate=3.42 mmol/L | Glucose=18.0 g/L | Biomass=1.8 g/L
+══════════════════════════════════════════════════════════════════════
 ```
 
 ---
@@ -169,7 +164,7 @@ npm run dev
 | :--- | :--- | :--- |
 | **`1_edge_ingestion`** | Go, Apache Kafka | High-throughput telemetry ingestion & noise injection |
 | **`2_simulation_env`** | CobraPy, Gymnasium, NumPy | Dynamic Flux Balance Analysis (dFBA) & Euler physics twin |
-| **`3_agent_swarm`** | LangGraph, Neo4j, Qdrant | Diagnostic reasoning, anomaly detection & root-cause analysis |
+| **`3_agent_swarm`** | LangGraph, Neo4j, Qdrant | Pure multi-agent deliberation, GraphRAG & counterfactual simulation |
 | **`4_safe_controller`** | Ray RLlib, CVXPY | Constrained Reinforcement Learning for feeding pump control |
 | **`5_frontend_dashboard`** | HTML/JS, WebSockets | Process analytical technology (PAT) visual monitoring |
 

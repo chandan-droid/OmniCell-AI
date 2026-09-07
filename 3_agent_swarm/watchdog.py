@@ -2,8 +2,8 @@
 watchdog.py — OmniCell-AI Phase 3 | Kafka Diagnostic Watchdog
 ───────────────────────────────────────────────────────────────
 Continuously consumes telemetry from the 'omnicell-telemetry' Kafka topic,
-feeds each payload into the LangGraph diagnostic swarm, and prints
-actionable alerts to stdout.
+feeds each payload into the LangGraph multi-agent deliberation swarm, and
+prints multi-agent consensus alerts to stdout.
 
 Run:
   python watchdog.py
@@ -22,6 +22,7 @@ import os
 import signal
 import sys
 import time
+from typing import Any
 
 from confluent_kafka import Consumer, KafkaError, KafkaException
 from dotenv import load_dotenv
@@ -63,11 +64,7 @@ signal.signal(signal.SIGTERM, _handle_sigterm)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _parse_message(raw_value: bytes) -> dict | None:
-    """
-    Safely parse a Kafka message payload as JSON.
-
-    Returns None if the payload is empty or malformed.
-    """
+    """Safely parse a Kafka message payload as JSON."""
     if not raw_value:
         return None
     try:
@@ -77,17 +74,30 @@ def _parse_message(raw_value: bytes) -> dict | None:
         return None
 
 
-def _emit_alert(recommended_action: str, diagnosis: dict, telemetry: dict) -> None:
-    """Pretty-print a diagnostic alert to stdout."""
-    border = "═" * 60
+def _emit_agent_alert(result: dict[str, Any], telemetry: dict[str, Any]) -> None:
+    """Pretty-print a full multi-agent consensus deliberation alert to stdout."""
+    decision = result.get("final_decision", {})
+    action = decision.get("action", "")
+    if not action or action == "hold_current_state":
+        return
+
+    confidence = result.get("confidence", 0.0) * 100
+    cgmp = result.get("cgmp_audit", {})
+    eng = result.get("engineer_review", {})
+    sim = result.get("simulation_results", {})
+
+    border = "═" * 70
     print(f"\n{border}")
-    print(f"  ⚠️  OMNICELL ALERT")
-    print(f"  Anomaly   : {diagnosis.get('anomaly', 'Unknown')}")
-    print(f"  Treatment : {diagnosis.get('treatment', 'Unknown')}")
-    print(f"  ACTION    : ► {recommended_action.upper()} ◄")
-    print(f"  Telemetry : Lactate={telemetry.get('lactate_mmolL', '?')} mmol/L"
-          f"  |  Glucose={telemetry.get('glucose_gL', '?')} g/L"
-          f"  |  pH={telemetry.get('pH', '?')}")
+    print(f"  🧬 OMNICELL MULTI-AGENT CONSENSUS ALERT")
+    print(f"  Anomaly         : {decision.get('anomaly', 'Unknown')}")
+    print(f"  Treatment       : {decision.get('treatment', 'Unknown')}")
+    print(f"  ACTION DIRECTIVE: ► {action.upper()} ◄")
+    print(f"  Confidence      : {confidence:.0f}% ({decision.get('consensus_status', 'APPROVED')})")
+    print(f"  Bio-Twin Sim    : {sim.get('summary', 'Sim verified')}")
+    print(f"  cGMP Audit      : {cgmp.get('compliance_rating', 'PASS')} | Risk: {cgmp.get('risk_grade', 'LOW')}")
+    print(f"  Telemetry       : Lactate={telemetry.get('lactate_mmolL', telemetry.get('lactate', '?'))} mmol/L | "
+          f"Glucose={telemetry.get('glucose_gL', telemetry.get('glucose', '?'))} g/L | "
+          f"Biomass={telemetry.get('biomass_gL', telemetry.get('biomass', '?'))} g/L")
     print(f"{border}\n")
 
 
@@ -96,26 +106,15 @@ def _emit_alert(recommended_action: str, diagnosis: dict, telemetry: dict) -> No
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def run_watchdog() -> None:
-    """
-    Continuous Kafka consumer + LangGraph swarm dispatcher.
-
-    Loop:
-      1. Poll Kafka for a message (timeout: KAFKA_POLL_MS)
-      2. Skip on timeout / transient error
-      3. Raise on fatal Kafka error
-      4. Parse JSON payload
-      5. Invoke LangGraph swarm
-      6. Emit alert if a recommended_action is present
-    """
-    print("🚀 OmniCell-AI Diagnostic Watchdog starting …")
+    """Continuous Kafka consumer + LangGraph multi-agent deliberation dispatcher."""
+    print("🚀 OmniCell-AI Multi-Agent Diagnostic Watchdog starting …")
     print(f"   Broker : {KAFKA_BOOTSTRAP}")
     print(f"   Topic  : {KAFKA_TOPIC}")
     print(f"   Group  : {KAFKA_GROUP_ID}\n")
 
-    # Compile LangGraph app (done once — expensive LLM binding)
-    print("🔧 Compiling LangGraph diagnostic swarm …")
+    print("🔧 Compiling Multi-Agent LangGraph Swarm …")
     app = build_graph()
-    print("✅ Swarm ready.\n")
+    print("✅ Multi-Agent Swarm ready.\n")
 
     consumer = Consumer(CONSUMER_CONFIG)
     consumer.subscribe([KAFKA_TOPIC])
@@ -126,18 +125,14 @@ def run_watchdog() -> None:
 
     try:
         while _RUNNING:
-            # ── Poll ────────────────────────────────────────────────────────
             msg = consumer.poll(timeout=KAFKA_POLL_MS / 1000.0)
 
             if msg is None:
-                # Normal timeout — no message in this window
                 continue
 
-            # ── Kafka-level errors ──────────────────────────────────────────
             if msg.error():
                 err = msg.error()
                 if err.code() == KafkaError._PARTITION_EOF:
-                    # Reached end of partition — not fatal
                     continue
                 elif err.fatal():
                     raise KafkaException(err)
@@ -145,41 +140,41 @@ def run_watchdog() -> None:
                     print(f"  [Watchdog] ⚠️  Non-fatal Kafka error: {err}")
                     continue
 
-            # ── Parse payload ───────────────────────────────────────────────
             telemetry = _parse_message(msg.value())
             if telemetry is None:
                 continue
 
             messages_processed += 1
-            ts = telemetry.get("timestamp", "?")
-            print(f"[MSG #{messages_processed}] ts={ts} | "
-                  f"lactate={telemetry.get('lactate_mmolL', '?')} mmol/L | "
-                  f"glucose={telemetry.get('glucose_gL', '?')} g/L | "
+            ts = telemetry.get("timestamp", time.strftime("%Y-%m-%d %H:%M:%S"))
+            print(f"\n[MSG #{messages_processed}] ts={ts} | "
+                  f"lactate={telemetry.get('lactate_mmolL', telemetry.get('lactate', '?'))} mmol/L | "
+                  f"glucose={telemetry.get('glucose_gL', telemetry.get('glucose', '?'))} g/L | "
                   f"pH={telemetry.get('pH', '?')}")
 
-            # ── Invoke LangGraph swarm ──────────────────────────────────────
             initial_state = {
-                "telemetry":          telemetry,
-                "symptom":            "",
-                "diagnosis":          {},
-                "recommended_action": "",
+                "telemetry":            telemetry,
+                "anomaly_evaluation":   {},
+                "hypotheses":           [],
+                "biologist_diagnosis":  {},
+                "simulation_results":   {},
+                "engineer_review":      {},
+                "cgmp_audit":           {},
+                "final_decision":       {},
+                "confidence":           0.0,
+                "deliberation_history": [],
             }
 
             try:
                 result = app.invoke(initial_state)
             except Exception as exc:
-                print(f"  [Watchdog] ❌ Swarm invocation error: {exc}")
+                print(f"  [Watchdog] ❌ Swarm deliberation error: {exc}")
                 continue
 
-            # ── Emit alert if actionable ────────────────────────────────────
-            action = result.get("recommended_action", "")
-            if action:
+            decision = result.get("final_decision", {})
+            action = decision.get("action", "")
+            if action and action != "hold_current_state":
                 alerts_fired += 1
-                _emit_alert(
-                    recommended_action=action,
-                    diagnosis=result.get("diagnosis", {}),
-                    telemetry=telemetry,
-                )
+                _emit_agent_alert(result=result, telemetry=telemetry)
 
     except KafkaException as exc:
         print(f"\n❌ Fatal Kafka exception: {exc}", file=sys.stderr)
@@ -192,5 +187,3 @@ def run_watchdog() -> None:
 
 if __name__ == "__main__":
     run_watchdog()
-
-
