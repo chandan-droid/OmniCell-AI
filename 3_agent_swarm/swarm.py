@@ -58,8 +58,6 @@ _XAI_MODEL      = os.getenv("XAI_MODEL", os.getenv("OPENAI_MODEL", "grok-2-1212"
 LACTATE_THRESHOLD_MMOL = float(os.getenv("LACTATE_THRESHOLD_MMOL", "2.0"))
 GLUCOSE_MIN_GL         = float(os.getenv("GLUCOSE_MIN_GL", "2.0"))
 GLUCOSE_MAX_GL         = float(os.getenv("GLUCOSE_MAX_GL", "30.0"))
-PH_MIN                 = float(os.getenv("PH_MIN", "6.8"))
-PH_MAX                 = float(os.getenv("PH_MAX", "7.4"))
 MAX_DEBATE_REVISIONS   = 3
 
 
@@ -111,7 +109,7 @@ def _parse_llm_json(content: str) -> dict[str, Any] | None:
 
 class AgentState(TypedDict):
     """Rich multi-agent state threaded through the entire deliberation lifecycle."""
-    telemetry:            dict[str, Any]  # Sensor snapshot (biomass, glucose, lactate, pH, DO)
+    telemetry:            dict[str, Any]  # Sensor snapshot (biomass, glucose, lactate)
     anomaly_evaluation:   dict[str, Any]  # Multivariate triage assessment & flagged symptoms
     hypotheses:           list[str]       # Candidate biological & mechanical failure modes
     biologist_diagnosis:  dict[str, Any]  # Root-cause analysis + proposed remedy from Biologist
@@ -131,13 +129,12 @@ class AgentState(TypedDict):
 
 _EVALUATOR_PROMPT = """\
 You are an expert bioprocess monitoring AI agent embedded in an autonomous bioreactor control system.
-Analyze the provided multi-variate telemetry snapshot across metabolic, substrate, and physicochemical parameters.
+Analyze the provided multi-variate telemetry snapshot across metabolic and substrate parameters.
 
 Standard reference baselines:
 - Biomass (X): 0.1 to 10.0 g/L
 - Glucose (S): 2.0 to 30.0 g/L (Optimal: 10 - 20 g/L)
 - Lactate (L): < 2.0 mmol/L (CQA Threshold: 2.0 mmol/L, Toxic: > 5.0 mmol/L)
-- pH: 6.8 to 7.4 (Optimal: 7.0 - 7.2)
 
 Evaluate whether the telemetry represents a nominal fermentation state or an emerging biological/mechanical anomaly.
 Formulate 2-3 candidate failure hypotheses if anomalous.
@@ -146,7 +143,7 @@ Return ONLY a valid JSON object matching this schema:
 {
   "is_anomalous": boolean,
   "symptoms": ["string"],
-  "primary_symptom": "string (e.g. 'Lactate Spike', 'Glucose Surge', 'Substrate Starvation', 'pH Drop' or '')",
+  "primary_symptom": "string (e.g. 'Lactate Spike', 'Glucose Surge', 'Substrate Starvation' or '')",
   "severity": "NOMINAL" | "WARNING" | "CRITICAL_CQA",
   "hypotheses": ["string"],
   "physiological_rationale": "string"
@@ -165,7 +162,6 @@ def evaluator_node(state: AgentState) -> AgentState:
     lactate = float(telem.get("lactate_mmolL", telem.get("lactate", 0.0)))
     glucose = float(telem.get("glucose_gL", telem.get("glucose", 15.0)))
     biomass = float(telem.get("biomass_gL", telem.get("biomass", 1.0)))
-    ph = float(telem.get("pH", telem.get("ph", 7.1)))
 
     llm = _get_llm(temperature=0.0)
     evaluation = None
@@ -201,21 +197,16 @@ def evaluator_node(state: AgentState) -> AgentState:
             hypotheses.append("Pump Calibration Drift or Line Siphoning")
             severity = "WARNING" if severity == "NOMINAL" else severity
 
-        if ph < PH_MIN or ph > PH_MAX:
-            flagged_symptoms.append("pH Drop" if ph < PH_MIN else "pH Elevation")
-            hypotheses.append("Acid-Base Imbalance or Probe Fouling")
-            severity = "CRITICAL_CQA"
-
         evaluation = {
             "is_anomalous": len(flagged_symptoms) > 0,
             "symptoms": flagged_symptoms,
             "primary_symptom": flagged_symptoms[0] if flagged_symptoms else "",
             "severity": severity,
             "hypotheses": hypotheses,
-            "physiological_rationale": f"Multivariate analysis: Lactate={lactate:.2f} mM, Glucose={glucose:.2f} g/L, pH={ph:.2f}",
+            "physiological_rationale": f"Multivariate analysis: Lactate={lactate:.2f} mM, Glucose={glucose:.2f} g/L, Biomass={biomass:.2f} g/L",
         }
 
-    evaluation["vitals_summary"] = f"Lactate={lactate:.2f} mM | Glucose={glucose:.2f} g/L | Biomass={biomass:.2f} g/L | pH={ph:.2f}"
+    evaluation["vitals_summary"] = f"Lactate={lactate:.2f} mM | Glucose={glucose:.2f} g/L | Biomass={biomass:.2f} g/L"
 
     log_entry = (
         f"[Evaluator] Vitals: {evaluation['vitals_summary']} -> "
@@ -489,7 +480,7 @@ Review the Biologist's proposal, simulation lookahead, and Engineer's review aga
 
 Regulatory Design Space Rules:
 - Broth Lactate CQA: Must remain <= 2.0 mmol/L (or demonstrate a continuous downward trajectory toward <= 2.0 mmol/L).
-- Broth pH CQA: 6.8 to 7.4.
+- Substrate Availability: Maintain glucose within 2.0 to 30.0 g/L to prevent culture starvation.
 - Prevent irreversible product quality degradation (e.g. host cell protein contamination from cell lysis).
 
 Evaluate whether the proposed strategy complies with Design Space parameters.

@@ -62,7 +62,7 @@ Rather than relying on linear pipelines or pre-ordained tool execution scripts, 
 
 ### 1. Anomaly Evaluator Agent (`evaluator_node`)
 * **Role:** Autonomous multivariate perception & trend analysis.
-* **Mechanism:** Prompts an LLM with `_EVALUATOR_PROMPT` to analyze multi-parameter telemetry ($[\text{Lactate}]$, $[\text{Glucose}]$, $[\text{Biomass}]$, $\text{pH}$), formulate 2–3 rival hypotheses, and assign a severity grade (`NOMINAL`, `WARNING`, `CRITICAL_CQA`).
+* **Mechanism:** Prompts an LLM with `_EVALUATOR_PROMPT` to analyze multi-parameter telemetry ($[\text{Lactate}]$, $[\text{Glucose}]$, $[\text{Biomass}]$), formulate 2–3 rival hypotheses, and assign a severity grade (`NOMINAL`, `WARNING`, `CRITICAL_CQA`).
 
 ### 2. Metabolic Biologist Agent (`biologist_node`)
 * **Role:** Pure ReAct reasoning with dynamic tool selection.
@@ -89,7 +89,7 @@ Rather than relying on linear pipelines or pre-ordained tool execution scripts, 
 
 ```python
 class AgentState(TypedDict):
-    telemetry:            dict[str, Any]  # Sensor snapshot (biomass, glucose, lactate, pH)
+    telemetry:            dict[str, Any]  # Sensor snapshot (biomass, glucose, lactate)
     anomaly_evaluation:   dict[str, Any]  # Multivariate triage assessment & flagged symptoms
     hypotheses:           list[str]       # Candidate biological & mechanical failure modes
     biologist_diagnosis:  dict[str, Any]  # Root-cause analysis + proposed remedy from Biologist

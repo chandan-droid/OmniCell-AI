@@ -149,7 +149,7 @@ def run_watchdog() -> None:
             print(f"\n[MSG #{messages_processed}] ts={ts} | "
                   f"lactate={telemetry.get('lactate_mmolL', telemetry.get('lactate', '?'))} mmol/L | "
                   f"glucose={telemetry.get('glucose_gL', telemetry.get('glucose', '?'))} g/L | "
-                  f"pH={telemetry.get('pH', '?')}")
+                  f"biomass={telemetry.get('biomass_gL', telemetry.get('biomass', '?'))} g/L")
 
             initial_state = {
                 "telemetry":            telemetry,

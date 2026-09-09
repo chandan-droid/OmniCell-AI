@@ -29,7 +29,6 @@ def test_nominal_telemetry() -> None:
             "biomass_gL": 2.5,
             "glucose_gL": 14.2,
             "lactate_mmolL": 0.85,
-            "pH": 7.05,
         },
         "anomaly_evaluation": {},
         "hypotheses": [],
@@ -63,7 +62,6 @@ def test_lactate_spike_anomaly() -> None:
             "biomass_gL": 1.8,
             "glucose_gL": 18.0,
             "lactate_mmolL": 3.42,  # > 2.0 mmol/L threshold
-            "pH": 6.95,
         },
         "anomaly_evaluation": {},
         "hypotheses": [],
@@ -116,7 +114,6 @@ def test_glucose_surge_anomaly() -> None:
             "biomass_gL": 1.2,
             "glucose_gL": 45.0,  # Surge > 30.0 g/L
             "lactate_mmolL": 1.2,
-            "pH": 7.1,
         },
         "anomaly_evaluation": {},
         "hypotheses": [],
@@ -153,7 +150,6 @@ def test_debate_reflection_loop() -> None:
             "biomass_gL": 1.5,
             "glucose_gL": 22.0,
             "lactate_mmolL": 4.10,
-            "pH": 6.85,
         },
         "anomaly_evaluation": {},
         "hypotheses": [],

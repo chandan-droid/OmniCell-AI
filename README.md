@@ -136,8 +136,8 @@ python watchdog.py
 
 **Expected output (multi-agent deliberation scenario):**
 ```text
-[MSG #4] ts=2026-09-06 21:40:02 | lactate=3.42 mmol/L | glucose=18.0 g/L | pH=6.95
-  [Evaluator] Vitals: Lactate=3.42 mM | Glucose=18.00 g/L | Biomass=1.80 g/L | pH=6.95 -> Status: CRITICAL_CQA (Flagged: Lactate Spike)
+[MSG #4] ts=2026-09-06 21:40:02 | lactate=3.42 mmol/L | glucose=18.0 g/L | biomass=1.80 g/L
+  [Evaluator] Vitals: Lactate=3.42 mM | Glucose=18.00 g/L | Biomass=1.80 g/L -> Status: CRITICAL_CQA (Flagged: Lactate Spike)
   [Biologist] Investigating root cause for symptom: 'Lactate Spike' ...
   [Biologist] Root Cause: Overflow Metabolism (Lactate Dehydrogenase / PDH) | Proposal: trace_pump_on | Sim Outcome: Simulated 2.0h lookahead: Biomass 1.80->4.29 g/L, Lactate 3.42->2.80 mmol/L (decreasing)
   [Engineer] Equipment Audit: APPROVED for action 'trace_pump_on'. Notes: Trace cofactor feed commanded at 0.010 L/h.
